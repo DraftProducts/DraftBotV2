@@ -14,21 +14,27 @@ let musics = new Map();
 let guilds = {};
     
 module.exports = ({ 
-	message, args: [url]
+	message, args
 }) => {
   if (!message.guild.available) return;
-
-  if (!guilds[message.guild.id]) guilds[message.guild.id] = new MusicPlayer();
+  console.log('je fonctionne');
+  if (!guilds[message.guild.id]){
+    guilds[message.guild.id] = new MusicPlayer();
+    console.log('test1');
+  } 
 
   let musicPlayer = guilds[message.guild.id];
-  if(url !== null){
-    url = message.content.split(/\s+/).slice(2).join(' ');
-    if (url) {
-      if (!url.startsWith('http')) {
-        let keywords = encodeURIComponent(args.join(" ")).replace(/%20/g, "+");
-        fetch(`https://www.googleapis.com/youtube/v3/search?order=viewCount&type=video&part=snippet&maxResults=5&key=${config.youtube_api}&q=${keywords}`)
+    console.log('test2');
+    if (args != null) {
+      console.log('test3');
+      if (!args[0].startsWith('http')) {
+        console.log('test4');
+        const keywords = encodeURIComponent(args.join(" ")).replace(/%20/g, "+");
+        fetch('https://www.googleapis.com/youtube/v3/search?order=viewCount&type=video&part=snippet&maxResults=5&key'+config.youtube_api+'&q='+keywords)
         .then(res=> res.json())
         .then(data => {
+          console.log(data);
+          message.reply("recherche video");
           const videos = data.items;
           const author  = message.author.username + '#' + message.author.discriminator;
           let temp = new Map();
@@ -39,7 +45,7 @@ module.exports = ({
             temp.set(emojiTxt[i],videos[i].snippet.title+'§https://www.youtube.com/watch?v='+videos[i].id.videoId+"§"+author+"§"+videos[i].snippet.thumbnails.default.url);
             // title§url§author§image
           }
-
+          message.reply("ça se passe bien pour le message");
           const id = Math.floor(Math.random() * 3000 + 999)
 
           const embed = new Discord.RichEmbed()
@@ -49,11 +55,14 @@ module.exports = ({
 
           musics.set(id,temp);
 
-          message.reply({embed}).then(msg => {
+          message.reply(embed).then(msg => {
             for(let j = 0; j < videos.length; j++){
               msg.react(emoji[j])
             }
+            message.reply("on a ajouté les emojis");
           });
+        }).catch(function(error) {
+          console.log(error.message);
         });
       } else if (url.search('youtube.com')) {
         let playlist = url.match(/list=(\S+?)(&|\s|$|#)/);
@@ -130,9 +139,6 @@ module.exports = ({
           message.channel.send(":no_entry_sign: | Nous ne supportons uniquement Youtube pour l'instant");
       }
     }
-  }else{
-    message.channel.send(":no_entry_sign: | /play <url>|<recherche>");
-  }
 }
 function timer() {
     for (let guildId in guilds) {
