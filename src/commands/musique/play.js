@@ -32,16 +32,16 @@ module.exports = ({
         fetch(`https://www.googleapis.com/youtube/v3/search?order=viewCount&type=video&part=snippet&maxResults=5&key=${config.youtube_api}&q=${keywords}`)
             .then((res) => res.json())
             .then((data) => {
-                const videos = data.items;
-                const author = message.author.username + '#' + message.author.discriminator;
+                const {items: videos} = data;
+            
+                const author = `${message.author.username}#${message.author.discriminator}`;
                 const temp = new Map();
-                const description = 'Ajoutez une réaction à la musique de votre choix pour la lancer !\n';
 
-                for (let i = 0; i < videos.length; i++) {
-                    description += `\n${emoji[i]} | [${videos[i].snippet.title}](https://www.youtube.com/watch?v=${videos[i].id.videoId})`;
+                const description = videos.reduce((prev, curr, i) => {
                     temp.set(`${emojiTxt[i]}§${videos[i].snippet.title}§https://www.youtube.com/watch?v=${videos[i].id.videoId}§${author}§${videos[i].snippet.thumbnails.default.url}`);
-                    // title§url§author§image
-                }
+                    return `${prev}\n${emoji[i]} | [${videos[i].snippet.title}](https://www.youtube.com/watch?v=${videos[i].id.videoId})`;
+                }, 'Ajoutez une réaction à la musique de votre choix pour la lancer !\n');
+                // title§url§author§image
 
                 const id = Math.floor(Math.random() * 3000 + 999);
 
