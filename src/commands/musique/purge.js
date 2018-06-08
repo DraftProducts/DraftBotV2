@@ -1,15 +1,13 @@
-const Discord = require('discord.js')
+const Discord = require('discord.js');
 
 const MusicPlayer = require('../../plugin/MusicPlayer');
-    
-module.exports = ({ 
-	message
-}) => {
-  if (!message.guild.available) return;
 
-  if (!guilds[message.guild.id]) guilds[message.guild.id] = new MusicPlayer();
+module.exports = ({ message }) => {
+	if (!message.guild.available) return;
 
-  let musicPlayer = guilds[message.guild.id];
+	if (!guilds[message.guild.id]) guilds[message.guild.id] = new MusicPlayer();
 
-  musicPlayer.purgeQueue(message);
-}
+	let musicPlayer = guilds[message.guild.id];
+
+	musicPlayer.purgeQueue(message);
+};
