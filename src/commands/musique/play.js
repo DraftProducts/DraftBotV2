@@ -1,4 +1,3 @@
-"use strict";
 const Discord = require('discord.js')
 const rp = require('request-promise')
 const fetch = require('node-fetch')
@@ -12,6 +11,11 @@ const emoji = ["1⃣", "2⃣", "3⃣", "4⃣", "5⃣"]
 const emojiTxt = [":one:", ":two:", ":three:", ":four:", ":five:"]
 
 let musics = new Map();
+module.exports.getMusics = getMusics;
+
+function getMusics(){
+    return musics;
+}
 let guilds = {};
 
 module.exports = ({
@@ -31,11 +35,10 @@ module.exports = ({
                 .then(res => res.json())
                 .then(data => {
 
-
                     const videos = data.items;
                     const author = message.author.username + '#' + message.author.discriminator;
-                    let temp = new Map();
-                    let description = "Ajoutez une réaction à la musique de votre choix pour la lancer !\n";
+                    const temp = new Map();
+                    const description = "Ajoutez une réaction à la musique de votre choix pour la lancer !\n";
 
                     for (let i = 0; i < videos.length; i++) {
                         description += "\n" + emoji[i] + " | [" + videos[i].snippet.title + "](https://www.youtube.com/watch?v=" + videos[i].id.videoId + ")"
@@ -54,13 +57,10 @@ module.exports = ({
 
                     message.reply({
                         embed
-                    }).then(msg => {
-                        putEmojis(msg, emoji);
+                    }).then(async msg => {
+                        for (let j = 0; j < videos.length; j++) await msg.react(emoji[j]);
                     });
-                    async function putEmojis(message, emoji) {
-                        for (let j = 0; j < videos.length; j++) await message.react(emoji[j]);
-                    }
-                }).catch(function (error) {
+                }).catch((error) => {
                     console.log(error.message);
                 });
         } else if (url.search('youtube.com')) {
@@ -155,6 +155,3 @@ function timer() {
     }
 }
 setInterval(timer, 10000);
-exports.getMusics = function() { 
-    return musics;
-}; 

@@ -77,5 +77,5 @@ DraftBot.on('messageUpdate', message => {
 DraftBot.login(config.token)
 
 process.on('SIGINT', () => {
-    DraftBot.destroy()
+    DraftBot.destroy();
 });
