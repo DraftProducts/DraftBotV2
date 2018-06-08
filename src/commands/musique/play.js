@@ -1,3 +1,4 @@
+"use strict";
 const Discord = require('discord.js')
 const rp = require('request-promise')
 const fetch = require('node-fetch')
@@ -7,139 +8,138 @@ const config = require('../../../config.json')
 const Song = require('../../plugin/Song');
 const MusicPlayer = require('../../plugin/MusicPlayer');
 
-const emoji = ["1⃣","2⃣","3⃣","4⃣","5⃣"]
-const emojiTxt = [":one:",":two:",":three:",":four:",":five:"]
+const emoji = ["1⃣", "2⃣", "3⃣", "4⃣", "5⃣"]
+const emojiTxt = [":one:", ":two:", ":three:", ":four:", ":five:"]
 
 let musics = new Map();
 let guilds = {};
-    
-module.exports = ({ 
-	message, args
+
+module.exports = ({
+    message,
+    args
 }) => {
-  if (!message.guild.available) return;
-  console.log('je fonctionne');
-  if (!guilds[message.guild.id]){
-    guilds[message.guild.id] = new MusicPlayer();
-    console.log('test1');
-  } 
+    if (!message.guild.available) return;
+    if (!guilds[message.guild.id]) {
+        guilds[message.guild.id] = new MusicPlayer();
+    }
 
-  let musicPlayer = guilds[message.guild.id];
-    console.log('test2');
+    let musicPlayer = guilds[message.guild.id];
     if (args != null) {
-      console.log('test3');
-      if (!args[0].startsWith('http')) {
-        console.log('test4');
-        const keywords = encodeURIComponent(args.join(" ")).replace(/%20/g, "+");
-        fetch('https://www.googleapis.com/youtube/v3/search?order=viewCount&type=video&part=snippet&maxResults=5&key'+config.youtube_api+'&q='+keywords)
-        .then(res=> res.json())
-        .then(data => {
-          console.log(data);
-          message.reply("recherche video");
-          const videos = data.items;
-          const author  = message.author.username + '#' + message.author.discriminator;
-          let temp = new Map();
-          let description = "Ajoutez une réaction à la musique de votre choix pour la lancer !\n";
+        if (!args[0].startsWith('http')) {
+            const keywords = encodeURIComponent(args.join(" ")).replace(/%20/g, "+");
+            fetch('https://www.googleapis.com/youtube/v3/search?order=viewCount&type=video&part=snippet&maxResults=5&key=' + config.youtube_api + '&q=' + keywords)
+                .then(res => res.json())
+                .then(data => {
 
-          for(let i = 0; i < videos.length; i++){
-            description += "\n"+emoji[i]+" | ["+videos[i].snippet.title+"](https://www.youtube.com/watch?v="+videos[i].id.videoId+")"
-            temp.set(emojiTxt[i],videos[i].snippet.title+'§https://www.youtube.com/watch?v='+videos[i].id.videoId+"§"+author+"§"+videos[i].snippet.thumbnails.default.url);
-            // title§url§author§image
-          }
-          message.reply("ça se passe bien pour le message");
-          const id = Math.floor(Math.random() * 3000 + 999)
 
-          const embed = new Discord.RichEmbed()
-          .setTitle("Liste des musiques disponibles ("+id+")")
-          .setDescription(description)
-          .setColor(0xcd6e57)
+                    const videos = data.items;
+                    const author = message.author.username + '#' + message.author.discriminator;
+                    let temp = new Map();
+                    let description = "Ajoutez une réaction à la musique de votre choix pour la lancer !\n";
 
-          musics.set(id,temp);
+                    for (let i = 0; i < videos.length; i++) {
+                        description += "\n" + emoji[i] + " | [" + videos[i].snippet.title + "](https://www.youtube.com/watch?v=" + videos[i].id.videoId + ")"
+                        temp.set(emojiTxt[i], videos[i].snippet.title + '§https://www.youtube.com/watch?v=' + videos[i].id.videoId + "§" + author + "§" + videos[i].snippet.thumbnails.default.url);
+                        // title§url§author§image
+                    }
 
-          message.reply(embed).then(msg => {
-            for(let j = 0; j < videos.length; j++){
-              msg.react(emoji[j])
+                    const id = Math.floor(Math.random() * 3000 + 999)
+
+                    const embed = new Discord.RichEmbed()
+                        .setTitle("Liste des musiques disponibles (" + id + ")")
+                        .setDescription(description)
+                        .setColor(0xcd6e57)
+
+                    musics.set(id, temp);
+
+                    message.reply({
+                        embed
+                    }).then(msg => {
+                        putEmojis(msg, emoji);
+                    });
+                    async function putEmojis(message, emoji) {
+                        for (let j = 0; j < videos.length; j++) await message.react(emoji[j]);
+                    }
+                }).catch(function (error) {
+                    console.log(error.message);
+                });
+        } else if (url.search('youtube.com')) {
+            let playlist = url.match(/list=(\S+?)(&|\s|$|#)/);
+            if (playlist) { //Playlist.
+                Promise.all([getPlaylistName(), getPlaylistSongs([], null)])
+                    .then(results => addToQueue(results[0], results[1]))
+                    .catch(err => {
+                        console.log(err);
+                        message.channel.send(":no_entry_sign: | Impossible d'ajouter la playlist a la file d'attente. Réessayez plus tard.")
+                    });
+
+                async function getPlaylistName() {
+                    let options = {
+                        url: `https://www.googleapis.com/youtube/v3/playlists?id=${playlist[1]}&part=snippet&key=${config.youtube_api}`
+                    }
+                    let body = await rp(options);
+                    let playlistTitle = JSON.parse(body).items[0].snippet.title;
+                    return playlistTitle;
+                }
+                async function getPlaylistSongs(playlistItems, pageToken) {
+                    pageToken = pageToken ?
+                        `&pageToken=${pageToken}` :
+                        '';
+
+                    let options = {
+                        url: `https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${playlist[1]}${pageToken}&part=snippet,contentDetails&fields=nextPageToken,items(snippet(title,resourceId/videoId,thumbnails),contentDetails)&maxResults=50&key=${config.youtube_api}`
+                    }
+
+                    let body = await rp(options);
+                    let playlist = JSON.parse(body);
+                    playlistItems = playlistItems.concat(playlist.items.filter(
+                        item => item.snippet.title != 'Deleted video'));
+
+                    if (playlist.hasOwnProperty('nextPageToken')) { //More videos in playlist.
+                        playlistItems = await getPlaylistSongs(playlistItems, playlist.nextPageToken);
+                    }
+
+                    return playlistItems;
+                }
+                async function addToQueue(playlistTitle, playlistItems) {
+                    let queueLength = musicPlayer.queue.length;
+                    const author = message.author.username + '#' + message.author.discriminator;
+                    for (let i = 0; i < playlistItems.length; i++) {
+                        let song = new Song(
+                            playlistItems[i].snippet.title,
+                            `https://www.youtube.com/watch?v=${playlistItems[i].snippet.resourceId.videoId}`,
+                            'youtube', author, "0:00", (playlistItems[i].snippet.thumbnails.medium.url || playlistItems[i].snippet.thumbnails.default.url));
+                        musicPlayer.queueSong(song, i + queueLength);
+                    }
+
+                    message.channel.send(":musical_note: | `" + playlistItems.length + "` pistes de `" + playlistTitle + "` viens d'être ajouté par `" + author + "`");
+
+                    if (musicPlayer.status != 'playing') {
+                        musicPlayer.playSong(message);
+                    }
+                }
+            } else if (url.search(/v=(\S+?)(&|\s|$|#)/)) { //Video.
+                url = url.match(/v=(\S+?)(&|\s|$|#)/).subtring(2);
+                fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&key=${config.youtube_api}&id=${url}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const videos = data.items;
+                        const author = message.author.username + '#' + message.author.discriminator;
+                        musicPlayer.queueSong(new Song(videos[i].snippet.title, "https://www.youtube.com/watch?v=" + url, 'youtube', author, videos[i].snippet.thumbnails.default.url));
+                        message.channel.send(":musical_note: | La piste `" + videos[i].snippet.title + "` viens d'être ajouté par `" + author + "`");
+                        if (musicPlayer.status != 'playing') musicPlayer.playSong(message);
+                    });
+            } else {
+                message.channel.send(`:no_entry_sign: | Lien youtube invalide !`);
             }
-            message.reply("on a ajouté les emojis");
-          });
-        }).catch(function(error) {
-          console.log(error.message);
-        });
-      } else if (url.search('youtube.com')) {
-        let playlist = url.match(/list=(\S+?)(&|\s|$|#)/);
-        if (playlist) { //Playlist.
-          Promise.all([getPlaylistName(), getPlaylistSongs([], null)])
-          .then(results => addToQueue(results[0], results[1]))
-          .catch(err => {
-              console.log(err);
-              message.channel.send(":no_entry_sign: | Impossible d'ajouter la playlist a la file d'attente. Réessayez plus tard.")
-          });
-
-          async function getPlaylistName() {  
-              let options = {
-                  url: `https://www.googleapis.com/youtube/v3/playlists?id=${playlist[1]}&part=snippet&key=${config.youtube_api}`
-              }
-              let body = await rp(options);
-              let playlistTitle = JSON.parse(body).items[0].snippet.title;
-              return playlistTitle;
-          }
-          async function getPlaylistSongs(playlistItems, pageToken) {
-              pageToken = pageToken ?
-                  `&pageToken=${pageToken}` :
-                  '';
-
-              let options = {
-                  url: `https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${playlist[1]}${pageToken}&part=snippet,contentDetails&fields=nextPageToken,items(snippet(title,resourceId/videoId,thumbnails),contentDetails)&maxResults=50&key=${config.youtube_api}`
-              }
-
-              let body = await rp(options);
-              let playlist = JSON.parse(body);
-              playlistItems = playlistItems.concat(playlist.items.filter(
-                  item => item.snippet.title != 'Deleted video'));
-
-              if (playlist.hasOwnProperty('nextPageToken')) { //More videos in playlist.
-                  playlistItems = await getPlaylistSongs(playlistItems, playlist.nextPageToken);
-              }
-
-              return playlistItems;
-          }
-          async function addToQueue(playlistTitle, playlistItems) {
-            let queueLength = musicPlayer.queue.length;
-            const author  = message.author.username + '#' + message.author.discriminator;
-            for (let i = 0; i < playlistItems.length; i++) {
-                let song = new Song(
-                    playlistItems[i].snippet.title,
-                    `https://www.youtube.com/watch?v=${playlistItems[i].snippet.resourceId.videoId}`,
-                    'youtube', author, "0:00", (playlistItems[i].snippet.thumbnails.medium.url || playlistItems[i].snippet.thumbnails.default.url));
-                musicPlayer.queueSong(song, i + queueLength);
-            }
-
-            message.channel.send(":musical_note: | `"+playlistItems.length+"` pistes de `"+playlistTitle+"` viens d'être ajouté par `"+author+"`");
-
-            if (musicPlayer.status != 'playing') {
-                musicPlayer.playSong(message);
-            }
-          }
-        } else if (url.search(/v=(\S+?)(&|\s|$|#)/)) { //Video.
-          url = url.match(/v=(\S+?)(&|\s|$|#)/).subtring(2);
-          fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&key=${config.youtube_api}&id=${url}`)
-          .then(res=> res.json())
-          .then(data => {
-              const videos = data.items;
-              const author  = message.author.username + '#' + message.author.discriminator;
-              musicPlayer.queueSong(new Song(videos[i].snippet.title, "https://www.youtube.com/watch?v="+url, 'youtube', author, videos[i].snippet.thumbnails.default.url));
-              message.channel.send(":musical_note: | La piste `"+videos[i].snippet.title+"` viens d'être ajouté par `"+author+"`");
-              if (musicPlayer.status != 'playing') musicPlayer.playSong(message);
-          });
+        } else if (url.search('soundcloud.com')) { //Soundcloud.
+            message.channel.send(":no_entry_sign: | Bientôt disponible !");
         } else {
-            message.channel.send(`:no_entry_sign: | Lien youtube invalide !`);
+            message.channel.send(":no_entry_sign: | Nous ne supportons uniquement Youtube pour l'instant");
         }
-      } else if (url.search('soundcloud.com')) { //Soundcloud.
-          message.channel.send(":no_entry_sign: | Bientôt disponible !");
-      } else {
-          message.channel.send(":no_entry_sign: | Nous ne supportons uniquement Youtube pour l'instant");
-      }
     }
 }
+
 function timer() {
     for (let guildId in guilds) {
         let musicPlayer = guilds[guildId];
@@ -155,3 +155,6 @@ function timer() {
     }
 }
 setInterval(timer, 10000);
+exports.getMusics = function() { 
+    return musics;
+}; 
