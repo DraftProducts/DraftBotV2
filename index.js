@@ -16,6 +16,7 @@ const queueCmd = require('./src/commands/musique/queue');
 const joinCmd = require('./src/commands/musique/join');
 const leaveCmd = require('./src/commands/musique/leave');
 const embeds = require('./src/embeds');
+const musics = new Map();
 
 const CM = CommandManager.init();
 CM.addCommand('play', playCmd);
@@ -45,53 +46,6 @@ DraftBot.on('message', (message) => {
 	RM.emit(message.channel.name, message);
 });
 
-DraftBot.on('messageReactionAdd', (messageReaction, user) => {
-	const member = messageReaction.message.guild.member(user);
-	const channel = messageReaction.message.channel;
-	if (!user.bot) {
-		if (
-			messageReaction.message.embeds[0].description.startsWith(
-				'Ajoutez une réaction à la musique de votre choix'
-			)
-		) {
-			const id = messageReaction.message.embeds[0].title.substring(32, 1);
-			const emoji = messageReaction.emoji.name;
-			if (playCmd.getMusics.get(id).has(emoji)) {
-				if (member.voiceChannel) {
-					member.voiceChannel.join().then((connexion) => {
-						const info = playCmd.musics
-							.get(id)
-							.get(emoji)
-							.split('§');
-						const musicPlayer =
-							guilds[messageReaction.message.guild.id];
-						// title§url§author§image
-						musicPlayer.queueSong(
-							new Song(
-								info[0],
-								info[1],
-								'youtube',
-								info[2],
-								info[3]
-							)
-						);
-						msg.channel.send(
-							':musical_note: | La piste `' +
-								info[0] +
-								"` viens d'être ajouté par `" +
-								info[2] +
-								'`'
-						);
-
-						if (musicPlayer.status != 'playing')
-							musicPlayer.playSong(msg, guild);
-					});
-				}
-			}
-		}
-	}
-});
-
 DraftBot.on('messageUpdate', (message) => {
 	CM.messageHandler(message);
 	RM.emit(message.channel.name, message);
@@ -102,3 +56,8 @@ DraftBot.login(config.token);
 process.on('SIGINT', () => {
 	DraftBot.destroy();
 });
+module.exports.getMusics = () => musics;
+
+function getMusics() {
+    return musics;
+}

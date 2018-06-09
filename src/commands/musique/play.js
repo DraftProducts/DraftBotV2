@@ -6,16 +6,10 @@ const config = require('../../../config.json');
 
 const Song = require('../../plugin/Song');
 const MusicPlayer = require('../../plugin/MusicPlayer');
+const index = require('../../../index');
 
 const emoji = ['1⃣', '2⃣', '3⃣', '4⃣', '5⃣'];
 const emojiTxt = [':one:', ':two:', ':three:', ':four:', ':five:'];
-
-const musics = new Map();
-module.exports.getMusics = () => musics;
-
-function getMusics() {
-    return musics;
-}
 const guilds = {};
 
 module.exports = ({
@@ -23,9 +17,10 @@ module.exports = ({
     args
 }) => {
     if (!message.guild.available) return;
-    const guild = message.guild.id;
-    const player = guilds.get(guild) || new MusicPlayer();
-    if (!guilds.has(guild)) guilds.set(guild, player);
+    if (!guilds[message.guild.id]) {
+        guilds[message.guild.id] = new MusicPlayer();
+    }
+    let musicPlayer = guilds[message.guild.id];
     if (!args) return;
     if (!args[0].startsWith('http')) {
         const keywords = encodeURIComponent(args.join(' ')).replace(/%20/g, '+');
@@ -40,17 +35,17 @@ module.exports = ({
                 const description = videos.reduce((prev, curr, i) => {
                     temp.set(`${emojiTxt[i]}§${videos[i].snippet.title}§https://www.youtube.com/watch?v=${videos[i].id.videoId}§${author}§${videos[i].snippet.thumbnails.default.url}`);
                     return `${prev}\n${emoji[i]} | [${videos[i].snippet.title}](https://www.youtube.com/watch?v=${videos[i].id.videoId})`;
-                }, 'Ajoutez une réaction à la musique de votre choix pour la lancer !\n');
+                }, `Ajoutez une réaction à la musique de votre choix pour la lancer !\n`);
                 // title§url§author§image
 
                 const id = Math.floor(Math.random() * 3000 + 999);
 
                 const embed = new Discord.RichEmbed()
-                    .setTitle('Liste des musiques disponibles (' + id + ')')
+                    .setTitle(`Liste des musiques disponibles (${id})`)
                     .setDescription(description)
                     .setColor(0xcd6e57);
 
-                musics.set(id, temp);
+                index.getMusics().set(id, temp);
 
                 message.reply({embed}).then(async (msg) => {
                     for (let j = 0; j < videos.length; j++)
@@ -82,11 +77,7 @@ module.exports = ({
                 pageToken = pageToken ? `&pageToken=${pageToken}` : '';
 
                 let options = {
-                    url: `https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${
-						playlist[1]
-					}${pageToken}&part=snippet,contentDetails&fields=nextPageToken,items(snippet(title,resourceId/videoId,thumbnails),contentDetails)&maxResults=50&key=${
-						config.youtube_api
-					}`,
+                    url: `https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${playlist[1]}${pageToken}&part=snippet,contentDetails&fields=nextPageToken,items(snippet(title,resourceId/videoId,thumbnails),contentDetails)&maxResults=50&key=${config.youtube_api}`,
                 };
 
                 let body = await rp(options);
@@ -109,10 +100,7 @@ module.exports = ({
             }
             async function addToQueue(playlistTitle, playlistItems) {
                 let queueLength = musicPlayer.queue.length;
-                const author =
-                    message.author.username +
-                    '#' +
-                    message.author.discriminator;
+                const author = `${message.author.username}#${message.author.discriminator}`;
                 for (let i = 0; i < playlistItems.length; i++) {
                     let song = new Song(
                         playlistItems[i].snippet.title,
@@ -128,15 +116,7 @@ module.exports = ({
                     musicPlayer.queueSong(song, i + queueLength);
                 }
 
-                message.channel.send(
-                    ':musical_note: | `' +
-                    playlistItems.length +
-                    '` pistes de `' +
-                    playlistTitle +
-                    "` viens d'être ajouté par `" +
-                    author +
-                    '`'
-                );
+                message.channel.send(`:musical_note: | ${playlistItems.length} pistes de \`${playlistTitle}\` viens d'être ajouté par \`${author}\``);
 
                 if (musicPlayer.status != 'playing') {
                     musicPlayer.playSong(message);
@@ -145,34 +125,17 @@ module.exports = ({
         } else if (url.search(/v=(\S+?)(&|\s|$|#)/)) {
             //Video.
             url = url.match(/v=(\S+?)(&|\s|$|#)/).subtring(2);
-            fetch(
-                    `https://www.googleapis.com/youtube/v3/videos?part=snippet&key=${
-					config.youtube_api
-				}&id=${url}`
-                )
+            fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&key=${config.youtube_api}&id=${url}`)
                 .then((res) => res.json())
                 .then((data) => {
                     const videos = data.items;
-                    const author =
-                        message.author.username +
-                        '#' +
-                        message.author.discriminator;
+                    const author = `${message.author.username}#${message.author.discriminator}`;
                     musicPlayer.queueSong(
-                        new Song(
-                            videos[i].snippet.title,
-                            'https://www.youtube.com/watch?v=' + url,
-                            'youtube',
-                            author,
-                            videos[i].snippet.thumbnails.default.url
+                        new Song(videos[i].snippet.title,`https://www.youtube.com/watch?v=${url}`,'youtube',author,videos[i].snippet.thumbnails.default.url
                         )
                     );
                     message.channel.send(
-                        ':musical_note: | La piste `' +
-                        videos[i].snippet.title +
-                        "` viens d'être ajouté par `" +
-                        author +
-                        '`'
-                    );
+                        `:musical_note: | La piste \`${videos[i].snippet.title}\` viens d'être ajouté par \`${author}\``);
                     if (musicPlayer.status != 'playing')
                         musicPlayer.playSong(message);
                 });
@@ -181,11 +144,9 @@ module.exports = ({
         }
     } else if (url.search('soundcloud.com')) {
         //Soundcloud.
-        message.channel.send(':no_entry_sign: | Bientôt disponible !');
+        message.channel.send(`:no_entry_sign: | Bientôt disponible !`);
     } else {
-        message.channel.send(
-            ":no_entry_sign: | Nous ne supportons uniquement Youtube pour l'instant"
-        );
+        message.channel.send(`:no_entry_sign: | Nous ne supportons uniquement Youtube pour l'instant`);
     }
 };
 
@@ -197,9 +158,7 @@ function timer() {
         if (musicPlayer.inactivityTimer <= 0) {
             musicPlayer.voiceConnection.disconnect();
             musicPlayer.voiceConnection = null;
-            musicPlayer.musicChannel.send(
-                ":musical_note: | J'ai quitté le salon par ce que je suis plus d'aucune utilité."
-            );
+            musicPlayer.musicChannel.send(`:musical_note: | J'ai quitté le salon par ce que je suis plus d'aucune utilité.`);
 
             guild.changeStatus('offline');
         }
